@@ -14,6 +14,7 @@
         .section { margin-top: 2px; border-bottom: 1px solid var(--tg-theme-hint-color, #3a3a3c); padding-bottom: 10px; margin-bottom: 15px; }
         .section h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #007aff); }
         .section_lb h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #d11919); }
+        .section_fwd h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #33cc33); }
         .form-group { margin-bottom: 10px; }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--tg-theme-hint-color, #98989e); }
         input, select {
@@ -28,12 +29,13 @@
         }
         .btn-gh { background-color: var(--tg-theme-button-color, #007aff); color: var(--tg-theme-button-text-color, #fff); }
         .btn-lb { background-color: #d11919; color: #fff; }
+        .btn-fwd { background-color: #33cc33; color: #fff; }
     </style>
 </head>
 <body>
 
     <div class="section">
-        <h3>🌍 Infrastructure Setup</h3>
+        <h3>🌍 Infrastructure Setup 🌍</h3>
         <div class="form-group">
             <label>Vultr Region</label>
             <select id="region_ID">
@@ -63,7 +65,7 @@
     </div>
 
     <div class="section">
-        <h3>🚇 Tunnel Configuration</h3>
+        <h3>🚇 Tunnel Configuration 🚇</h3>
         <div class="form-group">
             <label>Tunnel Type</label>
             <select id="tun_type">
@@ -79,14 +81,19 @@
     </div>
 
     <div class="section_lb">
-        <h3>🛡️ DNAT Settings (Ignored for LB)</h3>
+        <h3>🛡️ DNAT Settings (Ignored for LB) 🛡️</h3>
         <div class="form-group"><label>OpenVPN Dest IP (1194)</label><input type="text" id="dest_ip_ovpn" placeholder="IP Address"></div>
         <div class="form-group"><label>IPsec Dest IP (500/4500)</label><input type="text" id="dest_ipsec" placeholder="IP Address"></div>
     </div>
+        <div class="section_fwd">
+        <h3>⏩ Forwarding Node Pair (ONLY USED ON FWD RELAY SETUP) ⏩</h3>
+        <div class="form-group"><label>Forwarding Port (1194)</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
+        <div class="form-group"><label>Finnal Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
+    </div>
 
-    <button class="btn btn-gh" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup</button>
-    <button class="btn btn-lb" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay</button>
-    <button class="btn btn-lb" onclick="submitForm('deploy_fwd')">🛡️ Deploy FWD Relay</button>
+    <button class="btn btn-gh" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup 🚀</button>
+    <button class="btn btn-lb" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay 🛡️</button>
+    <button class="btn btn-fwd" onclick="submitForm('deploy_fwd')">⏩ Deploy FWD Relay ⏩</button>
 
     <script>
         Telegram.WebApp.ready();

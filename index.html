@@ -13,8 +13,8 @@
         }
         .section { margin-top: 2px; border-bottom: 1px solid var(--tg-theme-hint-color, #3a3a3c); padding-bottom: 10px; margin-bottom: 15px; }
         .section h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #007aff); }
-        .section_lb h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #d11919); }
-        .section_fwd h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #33cc33); }
+        .section_lb h3 { margin: 0 0 10px 0; font-size: 16px; color: #d11919; }
+        .section_fwd h3 { margin: 0 0 10px 0; font-size: 16px; color: #33cc33; }
         .form-group { margin-bottom: 10px; }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--tg-theme-hint-color, #98989e); }
         input, select {
@@ -24,83 +24,122 @@
             color: var(--tg-theme-text-color, #ffffff);
         }
         .btn {
-            width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 50px;
-            font-size: 16px; font-weight: bold; cursor: pointer;
+            width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 50px;
+            font-size: 16px; font-weight: bold; cursor: pointer; display: block;
         }
         .btn-gh { background-color: var(--tg-theme-button-color, #007aff); color: var(--tg-theme-button-text-color, #fff); }
         .btn-lb { background-color: #d11919; color: #fff; }
         .btn-fwd { background-color: #33cc33; color: #fff; }
+        .btn-back { background-color: transparent; color: var(--tg-theme-text-color); border: 1px solid var(--tg-theme-hint-color); }
+        
+        /* Utility classes for hiding elements */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div class="section">
-        <h3>🌍 Infrastructure Setup 🌍</h3>
-        <div class="form-group">
-            <label>Vultr Region</label>
-            <select id="region_ID">
-                <option value="9">Singapore (ggp) - 9</option>
-                <option value="12">Frankfurt (fra) - 12</option>
-                <option value="15">London (lhr) - 15</option>
-                <option value="17">Amsterdam (ams) - 17</option>
-                <option value="18">Warsaw (waw) - 18</option>
-                <option value="19">Stockholm (sto) - 19</option>
-                <option value="21">Mexico City (med) - 21</option>
-                <option value="22">Atlanta (atl) - 22</option>
-                <option value="24">New Jersey (ewr) - 24</option>
-                <option value="27">Miami (mia) - 27</option>
-                <option value="28">Chicago (ord) - 28</option>
-                <option value="30">Silicon Valley (sjc) 30</option>
-                
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Node A Hostname</label>
-            <input type="text" id="vps_hostname_A" placeholder="e.g., alpha">
-        </div>
-        <div class="form-group">
-            <label>Node B Hostname</label>
-            <input type="text" id="vps_hostname_B" placeholder="e.g., bravo">
-        </div>
+    <div id="main_menu">
+        <h2 style="text-align: center; margin-bottom: 20px;">Select Deployment Type</h2>
+        <button class="btn btn-gh" onclick="showForm('gh')">🚀 GH Path</button>
+        <button class="btn btn-lb" onclick="showForm('lb')">🛡️ LB Relay</button>
+        <button class="btn btn-fwd" onclick="showForm('fwd')">⏩ FWD Relay</button>
     </div>
 
-    <div class="section">
-        <h3>🚇 Tunnel Configuration 🚇</h3>
-        <div class="form-group">
-            <label>Tunnel Type</label>
-            <select id="tun_type">
-                <option value="gre">GRE</option>
-                <option value="vxlan">VXLAN</option>
-            </select>
+    <div id="form_container" class="hidden">
+        
+        <button class="btn btn-back" onclick="goBack()">⬅️ Back to Menu</button>
+
+        <div class="section">
+            <h3>🌍 Infrastructure Setup 🌍</h3>
+            <div class="form-group">
+                <label>Vultr Region</label>
+                <select id="region_ID">
+                    <option value="9">Singapore (sgp) - 9</option>
+                    <option value="12">Frankfurt (fra) - 12</option>
+                    <option value="15">London (lhr) - 15</option>
+                    <option value="17">Amsterdam (ams) - 17</option>
+                    <option value="18">Warsaw (waw) - 18</option>
+                    <option value="19">Stockholm (sto) - 19</option>
+                    <option value="21">Mexico City (mex) - 21</option>
+                    <option value="22">Atlanta (atl) - 22</option>
+                    <option value="24">New Jersey (ewr) - 24</option>
+                    <option value="27">Miami (mia) - 27</option>
+                    <option value="28">Chicago (ord) - 28</option>
+                    <option value="30">Silicon Valley (sjc) - 30</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Node A Hostname</label><input type="text" id="vps_hostname_A" placeholder="e.g., alpha"></div>
+            <div class="form-group"><label>Node B Hostname</label><input type="text" id="vps_hostname_B" placeholder="e.g., bravo"></div>
         </div>
-        <div class="form-group"><label>VXLAN ID (Dont remove 5000 unless !=5000)</label><input type="text" id="vxlan_id" value="5000"></div>
-        <div class="form-group"><label>Tunnel Public Dest IP</label><input type="text" id="tun_pub_dest_ip" placeholder="1.2.3.4"></div>
-        <div class="form-group"><label>Tunnel Interface IP</label><input type="text" id="tun_interface_ip" placeholder="10.58.x.x/30"></div>
-        <div class="form-group"><label>Tunnel Next Hop IP</label><input type="text" id="tun_nexthop_ip" placeholder="10.58.x.x"></div>
-        <div class="form-group"><label>Tunnel Routed Subnet</label><input type="text" id="tun_routed_subnet" placeholder="10.60.x.x/28"></div>
-    </div>
 
-    <div class="section_lb">
-        <h3>🛡️ DNAT Settings (Ignored for LB) 🛡️</h3>
-        <div class="form-group"><label>OpenVPN Dest IP (1194)</label><input type="text" id="dest_ip_ovpn" placeholder="IP Address"></div>
-        <div class="form-group"><label>IPsec Dest IP (500/4500)</label><input type="text" id="dest_ipsec" placeholder="IP Address"></div>
-    </div>
-        <div class="section_fwd">
-        <h3>⏩ Forwarding Node Pair (ONLY USED ON FWD RELAY SETUP) ⏩</h3>
-        <div class="form-group"><label>Forwarding Port (1194)</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
-        <div class="form-group"><label>Finnal Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
-    </div>
+        <div class="section">
+            <h3>🚇 Tunnel Configuration 🚇</h3>
+            <div class="form-group">
+                <label>Tunnel Type</label>
+                <select id="tun_type">
+                    <option value="gre">GRE</option>
+                    <option value="vxlan">VXLAN</option>
+                </select>
+            </div>
+            <div class="form-group"><label>VXLAN ID</label><input type="text" id="vxlan_id" value="5000"></div>
+            <div class="form-group"><label>Tunnel Public Dest IP</label><input type="text" id="tun_pub_dest_ip" placeholder="1.2.3.4"></div>
+            <div class="form-group"><label>Tunnel Interface IP</label><input type="text" id="tun_interface_ip" placeholder="10.58.x.x/30"></div>
+            <div class="form-group"><label>Tunnel Next Hop IP</label><input type="text" id="tun_nexthop_ip" placeholder="10.58.x.x"></div>
+            <div class="form-group"><label>Tunnel Routed Subnet</label><input type="text" id="tun_routed_subnet" placeholder="10.60.x.x/28"></div>
+        </div>
 
-    <button class="btn btn-gh" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup 🚀</button>
-    <button class="btn btn-lb" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay 🛡️</button>
-    <button class="btn btn-fwd" onclick="submitForm('deploy_fwd')">⏩ Deploy FWD Relay ⏩</button>
+        <div id="dnat_section" class="section_lb hidden">
+            <h3>🛡️ DNAT Settings 🛡️</h3>
+            <div class="form-group"><label>OpenVPN Dest IP (1194)</label><input type="text" id="dest_ip_ovpn" placeholder="IP Address"></div>
+            <div class="form-group"><label>IPsec Dest IP (500/4500)</label><input type="text" id="dest_ipsec" placeholder="IP Address"></div>
+        </div>
+
+        <div id="fwd_section" class="section_fwd hidden">
+            <h3>⏩ Forwarding Node Pair ⏩</h3>
+            <div class="form-group"><label>Forwarding Port</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
+            <div class="form-group"><label>Final Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
+        </div>
+
+        <button id="btn_submit_gh" class="btn btn-gh hidden" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup</button>
+        <button id="btn_submit_lb" class="btn btn-lb hidden" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay</button>
+        <button id="btn_submit_fwd" class="btn btn-fwd hidden" onclick="submitForm('deploy_fwd')">⏩ Deploy FWD Relay</button>
+    </div>
 
     <script>
         Telegram.WebApp.ready();
-        Telegram.WebApp.expand(); // Opens the app in full-screen mode
+        Telegram.WebApp.expand(); 
+
+        // Switches from Menu to the correct Form view
+        function showForm(type) {
+            document.getElementById('main_menu').classList.add('hidden');
+            document.getElementById('form_container').classList.remove('hidden');
+
+            // Hide all conditional parts first to reset the form
+            document.getElementById('dnat_section').classList.add('hidden');
+            document.getElementById('fwd_section').classList.add('hidden');
+            document.getElementById('btn_submit_gh').classList.add('hidden');
+            document.getElementById('btn_submit_lb').classList.add('hidden');
+            document.getElementById('btn_submit_fwd').classList.add('hidden');
+
+            // Turn on the specific fields and button based on selection
+            if (type === 'gh') {
+                document.getElementById('dnat_section').classList.remove('hidden');
+                document.getElementById('btn_submit_gh').classList.remove('hidden');
+            } else if (type === 'lb') {
+                document.getElementById('btn_submit_lb').classList.remove('hidden');
+            } else if (type === 'fwd') {
+                document.getElementById('fwd_section').classList.remove('hidden');
+                document.getElementById('btn_submit_fwd').classList.remove('hidden');
+            }
+        }
+
+        // Goes back to the main menu
+        function goBack() {
+            document.getElementById('form_container').classList.add('hidden');
+            document.getElementById('main_menu').classList.remove('hidden');
+        }
 
         function submitForm(actionType) {
-            // Gather all inputs into a neat JSON dictionary
             const data = {
                 action: actionType,
                 region_ID: document.getElementById('region_ID').value,
@@ -113,10 +152,12 @@
                 tun_nexthop_ip: document.getElementById('tun_nexthop_ip').value,
                 tun_routed_subnet: document.getElementById('tun_routed_subnet').value,
                 dest_ip_ovpn: document.getElementById('dest_ip_ovpn').value,
-                dest_ipsec: document.getElementById('dest_ipsec').value
+                dest_ipsec: document.getElementById('dest_ipsec').value,
+                // 🔥 NEW FIELDS ADDED HERE:
+                forwarding_port: document.getElementById('forwarding_port').value,
+                dest_ip: document.getElementById('dest_ip').value
             };
             
-            // Beam it back to Python!
             Telegram.WebApp.sendData(JSON.stringify(data));
         }
     </script>

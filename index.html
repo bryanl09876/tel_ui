@@ -132,8 +132,8 @@
                 document.getElementById('btn_submit_lb').classList.remove('hidden');
                 
             } else if (type === 'fwd') {
-                // HIDE the infrastructure and tunnel for FWD
-                document.getElementById('infrastructure_section').classList.add('hidden');
+                // Keep the Infrastructure section VISIBLE (Vultr needs Region/Names)
+                // Only hide the Tunnel section!
                 document.getElementById('tunnel_section').classList.add('hidden');
                 
                 // Show FWD settings and button

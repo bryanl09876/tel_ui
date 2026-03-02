@@ -4,7 +4,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Automatically adapts to Telegram's Dark or Light mode! */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             padding: 15px; margin: 0;
@@ -40,16 +39,16 @@
 
     <div id="main_menu">
         <h2 style="text-align: center; margin-bottom: 20px;">Select Deployment Type</h2>
-        <button class="btn btn-gh" onclick="showForm('gh')">🚀 GH Path</button>
-        <button class="btn btn-lb" onclick="showForm('lb')">🛡️ LB Relay</button>
-        <button class="btn btn-fwd" onclick="showForm('fwd')">⏩ FWD Relay</button>
+        <button class="btn btn-gh" onclick="showForm('gh')">🚀 Configure GH Setup</button>
+        <button class="btn btn-lb" onclick="showForm('lb')">🛡️ Configure LB Relay</button>
+        <button class="btn btn-fwd" onclick="showForm('fwd')">⏩ Configure FWD Relay</button>
     </div>
 
     <div id="form_container" class="hidden">
         
         <button class="btn btn-back" onclick="goBack()">⬅️ Back to Menu</button>
 
-        <div class="section">
+        <div id="infrastructure_section" class="section">
             <h3>🌍 Infrastructure Setup 🌍</h3>
             <div class="form-group">
                 <label>Vultr Region</label>
@@ -72,7 +71,7 @@
             <div class="form-group"><label>Node B Hostname</label><input type="text" id="vps_hostname_B" placeholder="e.g., bravo"></div>
         </div>
 
-        <div class="section">
+        <div id="tunnel_section" class="section">
             <h3>🚇 Tunnel Configuration 🚇</h3>
             <div class="form-group">
                 <label>Tunnel Type</label>
@@ -81,7 +80,7 @@
                     <option value="vxlan">VXLAN</option>
                 </select>
             </div>
-            <div class="form-group"><label>VXLAN ID</label><input type="text" id="vxlan_id" value="5000"></div>
+            <div class="form-group"><label>VXLAN ID (Dont remove 5000 unless !=5000)</label><input type="text" id="vxlan_id" value="5000"></div>
             <div class="form-group"><label>Tunnel Public Dest IP</label><input type="text" id="tun_pub_dest_ip" placeholder="1.2.3.4"></div>
             <div class="form-group"><label>Tunnel Interface IP</label><input type="text" id="tun_interface_ip" placeholder="10.58.x.x/30"></div>
             <div class="form-group"><label>Tunnel Next Hop IP</label><input type="text" id="tun_nexthop_ip" placeholder="10.58.x.x"></div>
@@ -95,8 +94,8 @@
         </div>
 
         <div id="fwd_section" class="section_fwd hidden">
-            <h3>⏩ Forwarding Node Pair ⏩</h3>
-            <div class="form-group"><label>Forwarding Port</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
+            <h3>⏩ Forwarding Node Pair (ONLY USED ON FWD RELAY SETUP) ⏩</h3>
+            <div class="form-group"><label>Forwarding Port (1194)</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
             <div class="form-group"><label>Final Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
         </div>
 
@@ -109,31 +108,40 @@
         Telegram.WebApp.ready();
         Telegram.WebApp.expand(); 
 
-        // Switches from Menu to the correct Form view
         function showForm(type) {
             document.getElementById('main_menu').classList.add('hidden');
             document.getElementById('form_container').classList.remove('hidden');
 
-            // Hide all conditional parts first to reset the form
+            // 1. Reset everything to hidden
             document.getElementById('dnat_section').classList.add('hidden');
             document.getElementById('fwd_section').classList.add('hidden');
             document.getElementById('btn_submit_gh').classList.add('hidden');
             document.getElementById('btn_submit_lb').classList.add('hidden');
             document.getElementById('btn_submit_fwd').classList.add('hidden');
+            
+            // 2. Assume infrastructure/tunnel are visible by default
+            document.getElementById('infrastructure_section').classList.remove('hidden');
+            document.getElementById('tunnel_section').classList.remove('hidden');
 
-            // Turn on the specific fields and button based on selection
+            // 3. Turn on exactly what we need
             if (type === 'gh') {
                 document.getElementById('dnat_section').classList.remove('hidden');
                 document.getElementById('btn_submit_gh').classList.remove('hidden');
+                
             } else if (type === 'lb') {
                 document.getElementById('btn_submit_lb').classList.remove('hidden');
+                
             } else if (type === 'fwd') {
+                // HIDE the infrastructure and tunnel for FWD
+                document.getElementById('infrastructure_section').classList.add('hidden');
+                document.getElementById('tunnel_section').classList.add('hidden');
+                
+                // Show FWD settings and button
                 document.getElementById('fwd_section').classList.remove('hidden');
                 document.getElementById('btn_submit_fwd').classList.remove('hidden');
             }
         }
 
-        // Goes back to the main menu
         function goBack() {
             document.getElementById('form_container').classList.add('hidden');
             document.getElementById('main_menu').classList.remove('hidden');
@@ -153,7 +161,6 @@
                 tun_routed_subnet: document.getElementById('tun_routed_subnet').value,
                 dest_ip_ovpn: document.getElementById('dest_ip_ovpn').value,
                 dest_ipsec: document.getElementById('dest_ipsec').value,
-                // 🔥 NEW FIELDS ADDED HERE:
                 forwarding_port: document.getElementById('forwarding_port').value,
                 dest_ip: document.getElementById('dest_ip').value
             };

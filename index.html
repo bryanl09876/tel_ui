@@ -125,7 +125,7 @@
     <script>
         Telegram.WebApp.ready();
         // SECURITY LOCK: Prevent opening in a normal browser
-        if (Telegram.WebApp.platform === "") {
+        if (Telegram.WebApp.platform === "unknown") {
             // If they aren't in Telegram, delete the whole app from the screen!
             document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#d11919;'>⛔ Access Denied.</h2>";
             throw new Error("Because");

@@ -15,6 +15,7 @@
         .section h3 { margin: 0 0 10px 0; font-size: 16px; color: var(--tg-theme-button-color, #007aff); }
         .section_lb h3 { margin: 0 0 10px 0; font-size: 16px; color: #d11919; }
         .section_fwd h3 { margin: 0 0 10px 0; font-size: 16px; color: #33cc33; }
+        .section_ovpn h3 { margin: 0 0 10px 0; font-size: 16px; color: #33cc33; }
         .form-group { margin-bottom: 10px; }
         label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--tg-theme-hint-color, #98989e); }
         input, select {
@@ -27,11 +28,11 @@
             width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 50px;
             font-size: 16px; font-weight: bold; cursor: pointer; display: block;
         }
-        .btn-gh { background-color: var(--tg-theme-button-color, #007aff); color: var(--tg-theme-button-text-color, #fff); }
-        .btn-lb { background-color: #d11919; color: #fff; }
-        .btn-fwd { background-color: #33cc33; color: #fff; }
+        .btn-gh { background-color: blue; color: white; }
+        .btn-lb { background-color: red; color: white; }
+        .btn-fwd { background-color: green; color: white; }
+        .btn-ovpn { background-color: orange; color: white; }
         .btn-back { background-color: transparent; color: var(--tg-theme-text-color); border: 1px solid var(--tg-theme-hint-color); }
-        
         /* Utility classes for hiding elements */
         .hidden { display: none !important; }
     </style>
@@ -43,6 +44,7 @@
         <button class="btn btn-gh" onclick="showForm('gh')">🚀 Configure GH Setup</button>
         <button class="btn btn-lb" onclick="showForm('lb')">🛡️ Configure LB Relay</button>
         <button class="btn btn-fwd" onclick="showForm('fwd')">⏩ Configure FWD Relay</button>
+        <button class="btn btn-ovpn" onclick="showForm('ovpn')"> Not working yet Build OpenVPN </button>
     </div>
 
     <div id="form_container" class="hidden">
@@ -99,16 +101,31 @@
             <div class="form-group"><label>Forwarding Port ex. 1194</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
             <div class="form-group"><label>Final Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
         </div>
-
+        
+        <div id="ovpn_section" class="section_ovpn hidden">
+            <h3> OpenVPN  </h3>
+            <div class="form-group"><label>OpenVPN Listening Port ex. 1194</label>
+            <input type="text" id="sPort" placeholder="Port Number" value="1194">
+            </div>
+            <div class="form-group">
+                <label>VPN Protocol</label>
+                <select id="tcp_udp">
+                    <option value="udp">udp</option>
+                    <option value="tcp">tcp</option>
+                </select>
+            </div>
+        </div>
+        
         <button id="btn_submit_gh" class="btn btn-gh hidden" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup</button>
         <button id="btn_submit_lb" class="btn btn-lb hidden" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay</button>
         <button id="btn_submit_fwd" class="btn btn-fwd hidden" onclick="submitForm('deploy_fwd')">⏩ Deploy FWD Relay</button>
+        <button id="btn_submit_ovpn" class="btn btn-ovpn hidden" onclick="submitForm('deploy_ovpn')">  Not working yet Build OpenVPN </button>
     </div>
 
     <script>
         Telegram.WebApp.ready();
         // SECURITY LOCK: Prevent opening in a normal browser
-        if (Telegram.WebApp.platform === "unknown") {
+        if (Telegram.WebApp.platform === "") {
             // If they aren't in Telegram, delete the whole app from the screen!
             document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#d11919;'>⛔ Access Denied.</h2>";
             throw new Error("Because");
@@ -122,9 +139,12 @@
             // 1. Reset everything to hidden
             document.getElementById('dnat_section').classList.add('hidden');
             document.getElementById('fwd_section').classList.add('hidden');
+            document.getElementById('ovpn_section').classList.add('hidden');
+            // Reset ALL buttons to hidden
             document.getElementById('btn_submit_gh').classList.add('hidden');
             document.getElementById('btn_submit_lb').classList.add('hidden');
             document.getElementById('btn_submit_fwd').classList.add('hidden');
+            document.getElementById('btn_submit_ovpn').classList.add('hidden');
             
             // 2. Assume infrastructure/tunnel are visible by default
             document.getElementById('infrastructure_section').classList.remove('hidden');
@@ -134,18 +154,30 @@
             if (type === 'gh') {
                 document.getElementById('dnat_section').classList.remove('hidden');
                 document.getElementById('btn_submit_gh').classList.remove('hidden');
+                document.getElementById('ovpn_section').classList.add('hidden');
                 
             } else if (type === 'lb') {
+            	document.getElementById('ovpn_section').classList.add('hidden');
                 document.getElementById('btn_submit_lb').classList.remove('hidden');
                 
             } else if (type === 'fwd') {
+                // Keep the Infrastructure section VISIBLE
+                // hide  tunnel and ovpn section!
+                document.getElementById('tunnel_section').classList.add('hidden');
+                document.getElementById('ovpn_section').classList.add('hidden');
+                
+                // Show FWD settings and button
+                document.getElementById('fwd_section').classList.remove('hidden');
+                document.getElementById('btn_submit_fwd').classList.remove('hidden');
+                
+            } else if (type === 'ovpn') {
                 // Keep the Infrastructure section VISIBLE (Vultr needs Region/Names)
                 // Only hide the Tunnel section!
                 document.getElementById('tunnel_section').classList.add('hidden');
                 
                 // Show FWD settings and button
-                document.getElementById('fwd_section').classList.remove('hidden');
-                document.getElementById('btn_submit_fwd').classList.remove('hidden');
+                document.getElementById('ovpn_section').classList.remove('hidden');
+                document.getElementById('btn_submit_ovpn').classList.remove('hidden');
             }
         }
 
@@ -169,7 +201,9 @@
                 dest_ip_ovpn: document.getElementById('dest_ip_ovpn').value,
                 dest_ipsec: document.getElementById('dest_ipsec').value,
                 forwarding_port: document.getElementById('forwarding_port').value,
-                dest_ip: document.getElementById('dest_ip').value
+                dest_ip: document.getElementById('dest_ip').value,
+                tcp_udp: document.getElementById('tcp_udp').value,
+                OpenVPN_Port: document.getElementById('sPort').value
             };
             
             Telegram.WebApp.sendData(JSON.stringify(data));

@@ -48,28 +48,21 @@
     </div>
 
     <div id="form_container" class="hidden">
-        
+
         <button class="btn btn-back" onclick="goBack()">⬅️ Back to Menu</button>
 
         <div id="infrastructure_section" class="section">
             <h3>🌍 Infrastructure Setup 🌍</h3>
             <div class="form-group">
-                <label>Vultr Region</label>
-                <select id="region_ID">
-                    <option value="9">Singapore (sgp) - 9</option>
-                    <option value="12">Frankfurt (fra) - 12</option>
-                    <option value="15">London (lhr) - 15</option>
-                    <option value="16">Manchester (man) - 16</option>
-                    <option value="17">Amsterdam (ams) - 17</option>
-                    <option value="18">Warsaw (waw) - 18</option>
-                    <option value="19">Stockholm (sto) - 19</option>
-                    <option value="21">Mexico City (mex) - 21</option>
-                    <option value="22">Atlanta (atl) - 22</option>
-                    <option value="24">New Jersey (ewr) - 24</option>
-                    <option value="27">Miami (mia) - 27</option>
-                    <option value="28">Chicago (ord) - 28</option>
-                    <option value="30">Silicon Valley (sjc) - 30</option>
+                <label>Cloud Provider</label>
+                <select id="provider" onchange="updateRegions()">
+                    <option value="vultr">Vultr</option>
+                    <option value="digitalocean">DigitalOcean (GH only for now)</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Region</label>
+                <select id="region_ID"></select>
             </div>
             <div class="form-group"><label>Node A Hostname</label><input type="text" id="vps_hostname_A" placeholder="e.g., alpha"></div>
             <div class="form-group"><label>Node B Hostname</label><input type="text" id="vps_hostname_B" placeholder="e.g., bravo"></div>
@@ -102,7 +95,7 @@
             <div class="form-group"><label>Forwarding Port ex. 1194</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
             <div class="form-group"><label>Final Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
         </div>
-        
+
         <div id="ovpn_section" class="section_ovpn hidden">
             <h3> 🔑 OpenVPN 🔑 </h3>
             <div class="form-group"><label>OpenVPN Listening Port ex. 1194</label>
@@ -116,7 +109,7 @@
                 </select>
             </div>
         </div>
-        
+
         <button id="btn_submit_gh" class="btn btn-gh hidden" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup</button>
         <button id="btn_submit_lb" class="btn btn-lb hidden" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay</button>
         <button id="btn_submit_fwd" class="btn btn-fwd hidden" onclick="submitForm('deploy_fwd')">⏩ Deploy FWD Relay</button>
@@ -131,7 +124,39 @@
             document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px; color:#d11919;'>⛔ Access Denied.</h2>";
             throw new Error("Because");
         }
-        Telegram.WebApp.expand(); 
+        Telegram.WebApp.expand();
+
+        // Region lists per provider. The values are the region_ID numbers the
+        // orchestrators expect: Vultr -> vultr_regions, DO -> do_regions.
+        const REGIONS = {
+            vultr: [
+                ["9","Singapore (sgp) - 9"], ["12","Frankfurt (fra) - 12"], ["15","London (lhr) - 15"],
+                ["16","Manchester (man) - 16"], ["17","Amsterdam (ams) - 17"], ["18","Warsaw (waw) - 18"],
+                ["19","Stockholm (sto) - 19"], ["21","Mexico City (mex) - 21"], ["22","Atlanta (atl) - 22"],
+                ["24","New Jersey (ewr) - 24"], ["27","Miami (mia) - 27"], ["28","Chicago (ord) - 28"],
+                ["30","Silicon Valley (sjc) - 30"]
+            ],
+            digitalocean: [
+                ["1","New York 1 (nyc1) - 1"], ["2","New York 3 (nyc3) - 2"], ["3","San Francisco 3 (sfo3) - 3"],
+                ["4","Toronto 1 (tor1) - 4"], ["5","Amsterdam 3 (ams3) - 5"], ["6","Frankfurt 1 (fra1) - 6"],
+                ["7","London 1 (lon1) - 7"], ["8","Bangalore 1 (blr1) - 8"], ["9","Singapore 1 (sgp1) - 9"],
+                ["10","Sydney 1 (syd1) - 10"]
+            ]
+        };
+
+        // Repopulate the Region dropdown to match the selected provider.
+        function updateRegions() {
+            const provider = document.getElementById('provider').value;
+            const sel = document.getElementById('region_ID');
+            sel.innerHTML = '';
+            REGIONS[provider].forEach(function (r) {
+                const opt = document.createElement('option');
+                opt.value = r[0];
+                opt.textContent = r[1];
+                sel.appendChild(opt);
+            });
+        }
+        updateRegions();  // populate on load (defaults to Vultr)
 
         function showForm(type) {
             document.getElementById('main_menu').classList.add('hidden');
@@ -146,7 +171,7 @@
             document.getElementById('btn_submit_lb').classList.add('hidden');
             document.getElementById('btn_submit_fwd').classList.add('hidden');
             document.getElementById('btn_submit_ovpn').classList.add('hidden');
-            
+
             // 2. Assume infrastructure/tunnel are visible by default
             document.getElementById('infrastructure_section').classList.remove('hidden');
             document.getElementById('tunnel_section').classList.remove('hidden');
@@ -156,26 +181,26 @@
                 document.getElementById('dnat_section').classList.remove('hidden');
                 document.getElementById('btn_submit_gh').classList.remove('hidden');
                 document.getElementById('ovpn_section').classList.add('hidden');
-                
+
             } else if (type === 'lb') {
             	document.getElementById('ovpn_section').classList.add('hidden');
                 document.getElementById('btn_submit_lb').classList.remove('hidden');
-                
+
             } else if (type === 'fwd') {
                 // Keep the Infrastructure section VISIBLE
                 // hide  tunnel and ovpn section!
                 document.getElementById('tunnel_section').classList.add('hidden');
                 document.getElementById('ovpn_section').classList.add('hidden');
-                
+
                 // Show FWD settings and button
                 document.getElementById('fwd_section').classList.remove('hidden');
                 document.getElementById('btn_submit_fwd').classList.remove('hidden');
-                
+
             } else if (type === 'ovpn') {
                 // Keep the Infrastructure section VISIBLE (Vultr needs Region/Names)
                 // Only hide the Tunnel section!
                 document.getElementById('tunnel_section').classList.add('hidden');
-                
+
                 // Show FWD settings and button
                 document.getElementById('ovpn_section').classList.remove('hidden');
                 document.getElementById('btn_submit_ovpn').classList.remove('hidden');
@@ -190,6 +215,7 @@
         function submitForm(actionType) {
             const data = {
                 action: actionType,
+                provider: document.getElementById('provider').value,
                 region_ID: document.getElementById('region_ID').value,
                 vps_hostname_A: document.getElementById('vps_hostname_A').value,
                 vps_hostname_B: document.getElementById('vps_hostname_B').value,
@@ -206,7 +232,7 @@
                 tcp_udp: document.getElementById('tcp_udp').value,
                 OpenVPN_Port: document.getElementById('sPort').value
             };
-            
+
             Telegram.WebApp.sendData(JSON.stringify(data));
         }
     </script>

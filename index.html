@@ -35,6 +35,14 @@
         .btn-back { background-color: transparent; color: var(--tg-theme-text-color); border: 1px solid var(--tg-theme-hint-color); }
         /* Utility classes for hiding elements */
         .hidden { display: none !important; }
+        /* Validation feedback (see validateForm) */
+        input.invalid { border-color: #d11919; }
+        .field-error { color: #ff6b6b; font-size: 12px; margin-top: 4px; }
+        .msg-box { border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+        .msg-box ul { margin: 6px 0 0; padding-left: 18px; }
+        .msg-box li { margin-bottom: 3px; }
+        .msg-error { background: rgba(209, 25, 25, 0.15); border: 1px solid #d11919; }
+        .msg-warn { background: rgba(255, 165, 0, 0.15); border: 1px solid orange; }
     </style>
 </head>
 <body>
@@ -86,14 +94,14 @@
 
         <div id="dnat_section" class="section_lb hidden">
             <h3>🛡️ DNAT Settings 🛡️</h3>
-            <div class="form-group"><label>OpenVPN Dest IP (1194)</label><input type="text" id="dest_ip_ovpn" placeholder="IP Address"></div>
-            <div class="form-group"><label>IPsec Dest IP (500/4500)</label><input type="text" id="dest_ipsec" placeholder="IP Address"></div>
+            <div class="form-group"><label>OpenVPN Dest IP (1194)</label><input type="text" id="dest_ip_ovpn" placeholder="e.g., 10.60.x.x"></div>
+            <div class="form-group"><label>IPsec Dest IP (500/4500)</label><input type="text" id="dest_ipsec" placeholder="e.g., 10.60.x.x"></div>
         </div>
 
         <div id="fwd_section" class="section_fwd hidden">
             <h3>⏩ Port Forwarding  ⏩</h3>
             <div class="form-group"><label>Forwarding Port ex. 1194</label><input type="text" id="forwarding_port" placeholder="Port Number"></div>
-            <div class="form-group"><label>Final Destination IP</label><input type="text" id="dest_ip" placeholder="Destination IP"></div>
+            <div class="form-group"><label>Final Destination IP</label><input type="text" id="dest_ip" placeholder="e.g., 10.60.x.x"></div>
         </div>
 
         <div id="ovpn_section" class="section_ovpn hidden">
@@ -109,6 +117,9 @@
                 </select>
             </div>
         </div>
+
+        <!-- Validation summary. Filled by submitForm(); hidden until needed. -->
+        <div id="form_messages" class="msg-box hidden"></div>
 
         <button id="btn_submit_gh" class="btn btn-gh hidden" onclick="submitForm('deploy_gh')">🚀 Deploy GH Setup</button>
         <button id="btn_submit_lb" class="btn btn-lb hidden" onclick="submitForm('deploy_lb')">🛡️ Deploy LB Relay</button>
@@ -159,6 +170,7 @@
         function showForm(type) {
             document.getElementById('main_menu').classList.add('hidden');
             document.getElementById('form_container').classList.remove('hidden');
+            clearFeedback();   // drop red marks / messages left over from another form
 
             // 1. Reset everything to hidden
             document.getElementById('dnat_section').classList.add('hidden');
@@ -206,11 +218,192 @@
         }
 
         function goBack() {
+            clearFeedback();
             document.getElementById('form_container').classList.add('hidden');
             document.getElementById('main_menu').classList.remove('hidden');
         }
 
+        // ==================================================================
+        // INPUT VALIDATION
+        // Every network value is checked here BEFORE Telegram.WebApp.sendData
+        // fires. A typo like 10.600.31.166 used to reach the bot and only blow
+        // up minutes later in iptables-restore on the new node; now it never
+        // leaves the app. Only inputs inside a VISIBLE section are checked, so
+        // each deployment type is validated against exactly the fields its
+        // playbook consumes (site_gh / site_lb / site_fwd vars_prompt).
+        // ==================================================================
+
+        // --- pure validation helpers (start) ---
+        // Strict dotted-quad: each octet 0-255, no leading zeros, IPv4 only.
+        const OCTET = '(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
+        const IPV4_RE = new RegExp('^' + OCTET + '(\\.' + OCTET + '){3}$');
+
+        function parseIPv4(str) {
+            return IPV4_RE.test(str) ? str.split('.').map(Number) : null;
+        }
+        function ipToInt(octets) {
+            return ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+        }
+        function intToIp(n) {
+            return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+        }
+        // "a.b.c.d/nn" -> {addr, prefix, mask, network}, or null if malformed.
+        function parseCIDR(str) {
+            const parts = str.split('/');
+            if (parts.length !== 2 || !/^\d{1,2}$/.test(parts[1])) return null;
+            const ip = parseIPv4(parts[0]);
+            const prefix = Number(parts[1]);
+            if (!ip || prefix > 32) return null;
+            const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0;
+            const addr = ipToInt(ip);
+            return { addr: addr, prefix: prefix, mask: mask, network: (addr & mask) >>> 0 };
+        }
+        function inNetwork(octets, cidr) {
+            return ((ipToInt(octets) & cidr.mask) >>> 0) === cidr.network;
+        }
+        function isInt(str, min, max) {
+            return /^\d+$/.test(str) && Number(str) >= min && Number(str) <= max;
+        }
+
+        // What each input must contain.
+        //   ip   = bare IPv4  (iptables -s / --to-destination, tunnel remote, next hop)
+        //   cidr = IPv4/prefix (nmcli ipv4.addresses / ipv4.routes, iptables -d)
+        //   port = 1-65535,  vni = VXLAN ID 1-16777215,  text = just non-empty
+        const RULES = {
+            vps_hostname_A:    { kind: 'text', label: 'Node A Hostname' },
+            vps_hostname_B:    { kind: 'text', label: 'Node B Hostname' },
+            vxlan_id:          { kind: 'vni',  label: 'VXLAN ID' },
+            tun_pub_dest_ip:   { kind: 'ip',   label: 'Tunnel Public Dest IP' },
+            tun_interface_ip:  { kind: 'cidr', label: 'Tunnel Interface IP' },
+            tun_nexthop_ip:    { kind: 'ip',   label: 'Tunnel Next Hop IP' },
+            tun_routed_subnet: { kind: 'cidr', label: 'Tunnel Routed Subnet' },
+            dest_ip_ovpn:      { kind: 'ip',   label: 'OpenVPN Dest IP' },
+            dest_ipsec:        { kind: 'ip',   label: 'IPsec Dest IP' },
+            forwarding_port:   { kind: 'port', label: 'Forwarding Port' },
+            dest_ip:           { kind: 'ip',   label: 'Final Destination IP' },
+            sPort:             { kind: 'port', label: 'OpenVPN Listening Port' }
+        };
+
+        // Returns a short problem description, or null when the value is acceptable.
+        function problemWith(kind, v) {
+            if (!v) return 'is required';
+            switch (kind) {
+                case 'ip':   return parseIPv4(v) ? null : '"' + v + '" is not a valid IPv4 address (e.g. 10.60.31.166)';
+                case 'cidr': return parseCIDR(v) ? null : '"' + v + '" must be IPv4/prefix (e.g. 10.60.31.160/28)';
+                case 'port': return isInt(v, 1, 65535) ? null : '"' + v + '" must be a port number 1-65535';
+                case 'vni':  return isInt(v, 1, 16777215) ? null : '"' + v + '" must be a number 1-16777215';
+                default:     return null;
+            }
+        }
+
+        // Sanity checks ACROSS fields. These are warnings, not errors: the
+        // deploy can proceed after confirmation, because unusual-but-intended
+        // layouts exist (e.g. a /32 tunnel address with an off-link next hop).
+        function crossChecks(vals) {
+            const warnings = [];
+            const subnet = vals.tun_routed_subnet ? parseCIDR(vals.tun_routed_subnet) : null;
+            if (subnet && subnet.addr !== subnet.network) {
+                warnings.push('Tunnel Routed Subnet ' + vals.tun_routed_subnet + ' has host bits set - did you mean '
+                              + intToIp(subnet.network) + '/' + subnet.prefix + '?');
+            }
+            const iface = vals.tun_interface_ip ? parseCIDR(vals.tun_interface_ip) : null;
+            const nexthop = vals.tun_nexthop_ip ? parseIPv4(vals.tun_nexthop_ip) : null;
+            if (iface && nexthop && iface.prefix < 32 && !inNetwork(nexthop, iface)) {
+                warnings.push('Tunnel Next Hop ' + vals.tun_nexthop_ip + ' is not inside Tunnel Interface IP ' + vals.tun_interface_ip);
+            }
+            ['dest_ip_ovpn', 'dest_ipsec'].forEach(function (id) {
+                const ip = vals[id] ? parseIPv4(vals[id]) : null;
+                if (subnet && ip && !inNetwork(ip, subnet)) {
+                    warnings.push(RULES[id].label + ' ' + vals[id] + ' is not inside Tunnel Routed Subnet ' + vals.tun_routed_subnet);
+                }
+            });
+            return warnings;
+        }
+        // --- pure validation helpers (end) ---
+
+        // ---- Feedback rendered in the page. window.alert() is unreliable
+        //      inside Telegram Mini Apps, so nothing here depends on it. ----
+        function clearFeedback() {
+            document.querySelectorAll('.invalid').forEach(function (el) { el.classList.remove('invalid'); });
+            document.querySelectorAll('.field-error').forEach(function (el) { el.remove(); });
+            const box = document.getElementById('form_messages');
+            box.innerHTML = '';
+            box.className = 'msg-box hidden';
+        }
+        function markInvalid(el, msg) {
+            el.classList.add('invalid');
+            const note = document.createElement('div');
+            note.className = 'field-error';
+            note.textContent = msg;
+            el.insertAdjacentElement('afterend', note);
+        }
+        function showMessages(title, items, cls) {
+            const box = document.getElementById('form_messages');
+            box.className = 'msg-box ' + cls;
+            const head = document.createElement('div');
+            head.textContent = title;
+            const ul = document.createElement('ul');
+            items.forEach(function (m) {
+                const li = document.createElement('li');
+                li.textContent = m;   // textContent: typed values are never parsed as HTML
+                ul.appendChild(li);
+            });
+            box.appendChild(head);
+            box.appendChild(ul);
+        }
+        // Typing in a field clears its red mark straight away.
+        document.querySelectorAll('#form_container input').forEach(function (el) {
+            el.addEventListener('input', function () {
+                el.classList.remove('invalid');
+                const n = el.nextElementSibling;
+                if (n && n.classList.contains('field-error')) n.remove();
+            });
+        });
+        function haptic(type) {
+            try { Telegram.WebApp.HapticFeedback.notificationOccurred(type); } catch (e) { /* older client */ }
+        }
+        function confirmDeploy(message, cb) {
+            try {
+                if (Telegram.WebApp.isVersionAtLeast('6.2')) { Telegram.WebApp.showConfirm(message, cb); return; }
+            } catch (e) { /* fall through to the browser dialog */ }
+            cb(window.confirm(message));
+        }
+
+        // Validate every VISIBLE input. Marks bad fields in place and returns
+        // {errors: [...], warnings: [...]}. Values are trimmed in the inputs
+        // themselves so the payload carries exactly what was checked.
+        function validateForm() {
+            clearFeedback();
+            const errors = [];
+            const vals = {};
+            Object.keys(RULES).forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el.closest('.hidden')) return;      // not part of this deployment type
+                const v = el.value.trim();
+                el.value = v;
+                const problem = problemWith(RULES[id].kind, v);
+                if (problem) {
+                    errors.push(RULES[id].label + ' ' + problem);
+                    markInvalid(el, problem);
+                } else {
+                    vals[id] = v;
+                }
+            });
+            const warnings = errors.length ? [] : crossChecks(vals);
+            return { errors: errors, warnings: warnings };
+        }
+
         function submitForm(actionType) {
+            const result = validateForm();
+
+            if (result.errors.length) {
+                showMessages('⛔ Fix these before deploying:', result.errors, 'msg-error');
+                haptic('error');
+                const first = document.querySelector('input.invalid');
+                if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
+                return;   // nothing is sent to the bot
+            }
+
             const data = {
                 action: actionType,
                 provider: document.getElementById('provider').value,
@@ -230,8 +423,18 @@
                 tcp_udp: document.getElementById('tcp_udp').value,
                 OpenVPN_Port: document.getElementById('sPort').value
             };
+            const payload = JSON.stringify(data);
+            const send = function () { Telegram.WebApp.sendData(payload); };
 
-            Telegram.WebApp.sendData(JSON.stringify(data));
+            if (result.warnings.length) {
+                showMessages('⚠️ Please double-check:', result.warnings, 'msg-warn');
+                haptic('warning');
+                confirmDeploy(result.warnings.length + ' value(s) look unusual (see the orange box). Deploy anyway?',
+                              function (ok) { if (ok) send(); });
+                return;
+            }
+
+            send();
         }
     </script>
 </body>
